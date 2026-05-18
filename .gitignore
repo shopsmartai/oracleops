@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+.venv/
+env/
+ENV/
+
+# Oracle wallet / credentials
+wallet/
+*.zip
+*.p12
+*.sso
+cwallet.sso
+ewallet.p12
+tnsnames.ora
+sqlnet.ora
+ojdbc.properties
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Test outputs
+test_output/
+*.log
+*.trace
+
+# Hermes runtime artifacts (when developing locally)
+.hermes-local/
+*.db
+*.db-shm
+*.db-wal
+
+# Secrets
+.env
+.env.local
+.env.*.local
+secrets.yml
+config.local.yml
