@@ -1,44 +1,35 @@
 --------------------------------------------------------------------------------
--- OracleOps demo seed
+-- OracleOps demo seed (plain SQL — no PL/SQL anonymous blocks)
 --------------------------------------------------------------------------------
 -- Creates a small e-commerce schema with intentional performance traps so
 -- every OracleOps skill has something realistic to find. Designed to fit
--- in the Always Free Tier (~50 MB of data, runs in under 2 minutes on
--- 1 OCPU Autonomous Database).
+-- in the Always Free Tier and seed in 30-60 seconds on 1 OCPU
+-- Autonomous Database.
 --
--- Run as ADMIN on the oracleopsdemo ADB:
---   sqlplus admin/<pw>@oracleopsdemo_high @examples/seed-demo.sql
--- or paste into Database Actions → SQL Worksheet.
+-- Run any of these ways:
+--   1. OCI Database Actions -> SQL -> paste this file -> Run Script
+--   2. SQL*Plus: sqlplus admin/<pw>@oracleopsdemo_high @examples/seed-demo.sql
+--   3. Python loader: python scripts/load-seed.py
 --
--- Idempotent: drops and recreates objects on every run.
+-- Idempotent: uses Oracle 23ai's DROP TABLE IF EXISTS so re-runs are safe.
+-- If you are on Oracle 19c or older, replace IF EXISTS with PL/SQL blocks,
+-- or simply let the DROP statements error on first run (they have no effect).
 --------------------------------------------------------------------------------
 
-SET ECHO ON
-SET FEEDBACK ON
-SET SERVEROUTPUT ON
-WHENEVER SQLERROR CONTINUE
-
 -- 1. Tear down anything from a previous run -----------------------------------
+-- Drop child tables first to avoid FK ordering issues.
 
-BEGIN
-  FOR r IN (SELECT table_name FROM user_tables
-             WHERE table_name IN ('ORDER_ITEMS','ORDERS','PRODUCTS','CUSTOMERS')) LOOP
-    EXECUTE IMMEDIATE 'DROP TABLE ' || r.table_name || ' CASCADE CONSTRAINTS PURGE';
-  END LOOP;
-  FOR r IN (SELECT view_name FROM user_views
-             WHERE view_name IN ('VW_CUSTOMER_REVENUE')) LOOP
-    EXECUTE IMMEDIATE 'DROP VIEW ' || r.view_name;
-  END LOOP;
-EXCEPTION WHEN OTHERS THEN
-  DBMS_OUTPUT.PUT_LINE('Cleanup: ' || SQLERRM);
-END;
-/
+DROP VIEW IF EXISTS vw_customer_revenue;
+DROP TABLE IF EXISTS order_items CASCADE CONSTRAINTS PURGE;
+DROP TABLE IF EXISTS orders CASCADE CONSTRAINTS PURGE;
+DROP TABLE IF EXISTS products CASCADE CONSTRAINTS PURGE;
+DROP TABLE IF EXISTS customers CASCADE CONSTRAINTS PURGE;
 
--- 2. CUSTOMERS — 500k rows, narrow table --------------------------------------
+-- 2. CUSTOMERS - 100k rows ---------------------------------------------------
 -- Trap: queries that filter by UPPER(email) will not use the email index.
 
 CREATE TABLE customers (
-  customer_id    NUMBER       NOT NULL,
+  customer_id    NUMBER        NOT NULL,
   email          VARCHAR2(120) NOT NULL,
   signup_date    DATE          NOT NULL,
   country        VARCHAR2(2)   NOT NULL,
@@ -61,10 +52,10 @@ SELECT
   END AS country,
   ROUND(DBMS_RANDOM.VALUE(0, 50000), 2) AS lifetime_value
   FROM dual
-CONNECT BY LEVEL <= 500000;
+CONNECT BY LEVEL <= 100000;
 COMMIT;
 
--- 3. PRODUCTS — 5k rows, small lookup table -----------------------------------
+-- 3. PRODUCTS - 1k rows ------------------------------------------------------
 
 CREATE TABLE products (
   product_id   NUMBER        NOT NULL,
@@ -86,13 +77,13 @@ SELECT
   END AS category,
   ROUND(DBMS_RANDOM.VALUE(5, 500), 2) AS price
   FROM dual
-CONNECT BY LEVEL <= 5000;
+CONNECT BY LEVEL <= 1000;
 COMMIT;
 
--- 4. ORDERS — 2M rows ---------------------------------------------------------
+-- 4. ORDERS - 500k rows ------------------------------------------------------
 -- Trap 1: NO index on customer_id, so customer-history lookups go full scan.
--- Trap 2: INITRANS = 1 on a hot table provokes "enq: TX - allocate ITL entry"
---         contention under concurrent inserts (demo for find-lock-contention).
+-- Trap 2: INITRANS=1 on a hot table provokes "enq: TX - allocate ITL entry"
+--         contention under concurrent inserts (find-lock-contention demo).
 -- Trap 3: status column has skewed distribution (95% 'SHIPPED') with no
 --         histogram, so optimizer mis-estimates cardinality.
 
@@ -102,6 +93,7 @@ CREATE TABLE orders (
   order_date  DATE          NOT NULL,
   status      VARCHAR2(20)  NOT NULL,
   total       NUMBER(12,2)  NOT NULL,
+  returned_at DATE,
   CONSTRAINT pk_orders PRIMARY KEY (order_id)
 ) INITRANS 1 MAXTRANS 2;
 
@@ -112,7 +104,7 @@ CREATE INDEX ix_orders_date ON orders(order_date);
 INSERT /*+ APPEND */ INTO orders
 SELECT
   LEVEL AS order_id,
-  TRUNC(DBMS_RANDOM.VALUE(1, 500000)) AS customer_id,
+  TRUNC(DBMS_RANDOM.VALUE(1, 100000)) AS customer_id,
   DATE '2024-01-01' + DBMS_RANDOM.VALUE(0, 500) AS order_date,
   CASE
     WHEN MOD(LEVEL, 20) = 0 THEN 'PENDING'
@@ -120,12 +112,13 @@ SELECT
     WHEN MOD(LEVEL, 200) = 0 THEN 'FRAUD_HOLD'
     ELSE 'SHIPPED'
   END AS status,
-  ROUND(DBMS_RANDOM.VALUE(10, 2000), 2) AS total
+  ROUND(DBMS_RANDOM.VALUE(10, 2000), 2) AS total,
+  NULL AS returned_at
   FROM dual
-CONNECT BY LEVEL <= 2000000;
+CONNECT BY LEVEL <= 500000;
 COMMIT;
 
--- 5. ORDER_ITEMS — 5M rows ---------------------------------------------------
+-- 5. ORDER_ITEMS - 1M rows ---------------------------------------------------
 -- Trap: NO index on product_id, so product-level reporting joins go via
 -- HASH JOIN on the full table.
 
@@ -144,12 +137,12 @@ CREATE INDEX ix_order_items_order ON order_items(order_id);
 INSERT /*+ APPEND */ INTO order_items
 SELECT
   LEVEL AS order_item_id,
-  TRUNC(DBMS_RANDOM.VALUE(1, 2000000)) AS order_id,
-  TRUNC(DBMS_RANDOM.VALUE(1, 5000))     AS product_id,
-  TRUNC(DBMS_RANDOM.VALUE(1, 6))        AS qty,
-  ROUND(DBMS_RANDOM.VALUE(5, 800), 2)   AS line_total
+  TRUNC(DBMS_RANDOM.VALUE(1, 500000))  AS order_id,
+  TRUNC(DBMS_RANDOM.VALUE(1, 1000))    AS product_id,
+  TRUNC(DBMS_RANDOM.VALUE(1, 6))       AS qty,
+  ROUND(DBMS_RANDOM.VALUE(5, 800), 2)  AS line_total
   FROM dual
-CONNECT BY LEVEL <= 5000000;
+CONNECT BY LEVEL <= 1000000;
 COMMIT;
 
 -- 6. View with scalar subquery in the SELECT list ----------------------------
@@ -166,67 +159,30 @@ SELECT
       AND o.status = 'SHIPPED') AS revenue
   FROM customers c;
 
--- 7. Make statistics stale on ORDERS ----------------------------------------
--- We gather full stats on everything except ORDERS, then update ORDERS so
--- the cardinality model is off. recommend-statistics-refresh should flag it.
+-- 7. Gather full stats, then make a subset stale -----------------------------
+-- After this block, the optimizer believes RETURNED rows don't exist.
 
-EXEC DBMS_STATS.GATHER_SCHEMA_STATS(USER, CASCADE => TRUE);
-
--- Simulate an unstats'd churn: 5% of orders move from SHIPPED to RETURNED
--- without re-gathering. After this, the optimizer thinks RETURNED rows
--- don't exist, so any query filtering on status='RETURNED' will badly
--- mis-estimate.
-
-ALTER TABLE orders ADD (returned_at DATE);
+BEGIN DBMS_STATS.GATHER_SCHEMA_STATS(USER, CASCADE => TRUE); END;
+/
 
 UPDATE orders
    SET status = 'RETURNED', returned_at = SYSDATE - DBMS_RANDOM.VALUE(0, 30)
  WHERE MOD(order_id, 20) = 5;
 COMMIT;
 
--- Intentionally do NOT regather stats here.
+-- Intentionally do NOT regather stats here so recommend-statistics-refresh
+-- has something to find.
 
 -- 8. Insert a single PENDING order with a peculiar customer_id ---------------
--- This is the "needle in a haystack" candidate for bind-variable-peeking
--- demos: an atypical bind value will hard-parse a bad plan.
+-- Atypical bind value for bind-variable-peeking demos.
 
 INSERT INTO orders (order_id, customer_id, order_date, status, total)
-VALUES (2000001, 1, SYSDATE, 'PENDING', 9999.99);
+VALUES (500001, 1, SYSDATE, 'PENDING', 9999.99);
 COMMIT;
 
--- 9. Summary ----------------------------------------------------------------
+-- 9. Final row counts --------------------------------------------------------
 
-PROMPT
-PROMPT ============================================================
-PROMPT OracleOps demo data loaded.
-PROMPT ============================================================
-PROMPT
-PROMPT Tables:
 SELECT table_name, num_rows
   FROM user_tab_statistics
  WHERE table_name IN ('CUSTOMERS','PRODUCTS','ORDERS','ORDER_ITEMS')
  ORDER BY num_rows DESC;
-
-PROMPT
-PROMPT Built-in performance traps to find:
-PROMPT   1. orders.customer_id has no index  ->  recommend-index
-PROMPT   2. order_items.product_id has no index
-PROMPT   3. orders has INITRANS=1            ->  ITL contention under load
-PROMPT   4. orders status histogram missing  ->  recommend-statistics-refresh
-PROMPT   5. vw_customer_revenue is a scalar  ->  rewrite-bad-query
-PROMPT      subquery anti-pattern
-PROMPT
-PROMPT Suggested queries to run for demos:
-PROMPT   -- Full table scan because customer_id has no index
-PROMPT   SELECT * FROM orders WHERE customer_id = 42;
-PROMPT
-PROMPT   -- Function on indexed column kills the index
-PROMPT   SELECT * FROM customers WHERE UPPER(email) = 'USER42@EXAMPLE.COM';
-PROMPT
-PROMPT   -- Scalar subquery anti-pattern
-PROMPT   SELECT * FROM vw_customer_revenue WHERE customer_id BETWEEN 100 AND 200;
-PROMPT
-PROMPT   -- Status with stale stats
-PROMPT   SELECT COUNT(*) FROM orders WHERE status = 'RETURNED';
-PROMPT
-PROMPT ============================================================
