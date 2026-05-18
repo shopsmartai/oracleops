@@ -8,7 +8,9 @@ when_to_use: |
 requires_toolsets:
   - oracle_db
 required_environment_variables:
-  - ORACLE_CONNECTION_STRING
+  - ORACLE_USER
+  - ORACLE_PASSWORD
+  - ORACLE_DSN
 metadata:
   hermes:
     config:
