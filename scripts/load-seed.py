@@ -30,11 +30,13 @@ import sys
 import time
 from pathlib import Path
 
-# Make the plugins/ directory importable
+# Connection module lives at the repo root now (after the move to plugin
+# layout in commit cf4eea5+). Put the repo root on sys.path so we can
+# import it directly without going through plugins/<name>/.
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "plugins"))
+sys.path.insert(0, str(REPO_ROOT))
 
-from oracle.connection import get_pool  # noqa: E402
+from connection import get_pool  # noqa: E402
 
 
 # SQL*Plus directives we should silently skip — they're not SQL.

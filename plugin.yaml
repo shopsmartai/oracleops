@@ -1,0 +1,11 @@
+name: oracleops
+version: 0.1.0
+description: "Oracle Database 23ai/26ai DBA toolkit for Hermes Agent. Diagnose slow queries, read AWR snapshots, find lock contention, recommend indexes. Read-only by default; writes require explicit user confirmation. Works with Oracle Autonomous Database via wallet auth."
+author: ShopSmartAI
+kind: backend
+provides_tools:
+  - oracle_run_select
+  - oracle_describe_table
+  - oracle_explain_plan
+  - oracle_display_cursor_plan
+  - oracle_write_with_confirmation
