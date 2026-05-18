@@ -70,6 +70,13 @@ def split_statements(sql_text: str) -> list[tuple[str, str]]:
     in_string = False
     string_delim: str | None = None
 
+    def _buf_is_blank() -> bool:
+        """True if buf has accumulated only whitespace (newlines from blank
+        lines between statements). This matters for PL/SQL detection — we
+        want BEGIN at the top of a logically empty buf to flip us into
+        PL/SQL mode even when prior lines left whitespace behind."""
+        return not "".join(buf).strip()
+
     lines = sql_text.splitlines()
     for raw_line in lines:
         line = raw_line.rstrip()
@@ -78,14 +85,15 @@ def split_statements(sql_text: str) -> list[tuple[str, str]]:
         stripped = line.lstrip()
         if stripped.startswith("--"):
             continue
-        if not stripped and not buf:
+        if not stripped and _buf_is_blank():
             continue
 
         # Detect start of a PL/SQL block. A line starting with BEGIN or
         # DECLARE (case-insensitive) flips the parser into PL/SQL mode
-        # until a `/` line.
+        # until a `/` line. We allow whitespace-only buf because comments
+        # and blank lines between statements leave newlines behind.
         upper_stripped = stripped.upper()
-        if not in_plsql_block and not buf and (
+        if not in_plsql_block and _buf_is_blank() and (
             upper_stripped.startswith("BEGIN")
             or upper_stripped.startswith("DECLARE")
             or upper_stripped.startswith("CREATE OR REPLACE PROCEDURE")
@@ -94,6 +102,7 @@ def split_statements(sql_text: str) -> list[tuple[str, str]]:
             or upper_stripped.startswith("CREATE OR REPLACE TRIGGER")
         ):
             in_plsql_block = True
+            buf = []  # discard accumulated whitespace, start clean
 
         # PL/SQL block terminator: a line consisting only of '/'
         if in_plsql_block and stripped == "/":
