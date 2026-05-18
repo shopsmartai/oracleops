@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OracleOps cover</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  /* ----------------------------------------------------------------
+     OracleOps cover — render at exactly 1000 x 420 for DEV.to.
+     Open this file in Chrome, then either:
+       (a) DevTools → Toggle device toolbar → set 1000 x 420 →
+           Cmd+Shift+P → "Capture full size screenshot"
+       (b) Cmd+Shift+4 and crop the .cover element on-screen
+     Save the resulting PNG and upload as the DEV.to cover image.
+     ---------------------------------------------------------------- */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #0a0e17;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  .cover {
+    width: 1000px;
+    height: 420px;
+    background:
+      radial-gradient(ellipse at 18% 30%, rgba(239, 68, 68, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 82% 70%, rgba(34, 197, 94, 0.18) 0%, transparent 55%),
+      linear-gradient(135deg, #0a0e17 0%, #0f1729 50%, #131b2e 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Subtle terminal grid in the background */
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ----- Top brand strip ----- */
+  .brand {
+    position: absolute;
+    top: 22px;
+    left: 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    z-index: 3;
+  }
+  .brand .name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, #ef4444 0%, #f97316 30%, #facc15 60%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .brand .tag {
+    font-size: 11px;
+    color: #94a3b8;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  .url {
+    position: absolute;
+    top: 24px;
+    right: 32px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #64748b;
+    z-index: 3;
+  }
+  .url::before { content: '➜ '; color: #475569; }
+
+  /* ----- Center: the plan diff ----- */
+  .diff {
+    position: absolute;
+    top: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    z-index: 2;
+  }
+
+  .panel {
+    background: rgba(15, 23, 42, 0.7);
+    border-radius: 10px;
+    padding: 14px 22px 16px;
+    width: 360px;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    backdrop-filter: blur(8px);
+  }
+  .panel .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .panel .operation {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    line-height: 1.15;
+  }
+  .panel .cost {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .panel .cost-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #94a3b8;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+  }
+  .panel .cost-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 36px;
+    line-height: 1;
+  }
+
+  .panel.before {
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 0 32px rgba(239, 68, 68, 0.08), inset 0 0 0 1px rgba(239, 68, 68, 0.1);
+  }
+  .panel.before .label { color: #f87171; }
+  .panel.before .operation { color: #fca5a5; }
+  .panel.before .cost-value { color: #ef4444; }
+
+  .panel.after {
+    border-color: rgba(34, 197, 94, 0.35);
+    box-shadow: 0 0 32px rgba(34, 197, 94, 0.08), inset 0 0 0 1px rgba(34, 197, 94, 0.1);
+  }
+  .panel.after .label { color: #4ade80; }
+  .panel.after .operation { color: #86efac; }
+  .panel.after .cost-value { color: #22c55e; }
+
+  .arrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 34px;
+    color: #6366f1;
+    text-shadow: 0 0 16px rgba(99, 102, 241, 0.6);
+  }
+
+  /* ----- The 98.9% headline ----- */
+  .headline {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 2;
+  }
+  .headline .number {
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, #22c55e 0%, #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+    display: inline-block;
+  }
+  .headline .number .pct {
+    font-size: 28px;
+  }
+  .headline .subline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #cbd5e1;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+  }
+  .headline .subline .key {
+    color: #facc15;
+    font-weight: 700;
+  }
+
+  /* ----- Bottom strip: positioning + branding ----- */
+  .bottom {
+    position: absolute;
+    bottom: 18px;
+    left: 32px;
+    right: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    z-index: 3;
+  }
+  .bottom .left {
+    color: #94a3b8;
+    letter-spacing: 0.4px;
+  }
+  .bottom .left strong {
+    color: #e2e8f0;
+    font-weight: 700;
+  }
+  .bottom .right {
+    color: #64748b;
+    letter-spacing: 0.5px;
+  }
+  .bottom .right .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    margin-left: 8px;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    border-radius: 4px;
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.08);
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">
+    <span class="name">ORACLEOPS</span>
+    <span class="tag">AI DBA in your Telegram</span>
+  </div>
+  <div class="url">github.com/shopsmartai/oracleops</div>
+
+  <div class="diff">
+    <div class="panel before">
+      <div class="label">▸ BEFORE</div>
+      <div class="operation">TABLE&nbsp;ACCESS<br>STORAGE&nbsp;FULL</div>
+      <div class="cost">
+        <span class="cost-label">cost</span>
+        <span class="cost-value">709</span>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="panel after">
+      <div class="label">▸ AFTER</div>
+      <div class="operation">INDEX&nbsp;RANGE<br>SCAN</div>
+      <div class="cost">
+        <span class="cost-label">cost</span>
+        <span class="cost-value">8</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="headline">
+    <div class="number">98.9% faster<span class="pct"></span></div>
+    <div class="subline">after my literal <span class="key">"yes"</span> — every write audited</div>
+  </div>
+
+  <div class="bottom">
+    <div class="left">Diagnose &nbsp;·&nbsp; Recommend &nbsp;·&nbsp; <strong>Confirm</strong> &nbsp;·&nbsp; Fix &nbsp;·&nbsp; Verify</div>
+    <div class="right">
+      Submission for <span class="badge">Hermes Agent Challenge</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
