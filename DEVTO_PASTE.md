@@ -10,7 +10,10 @@ canonical_url: https://github.com/shopsmartai/oracleops
 
 ## What I Built
 
-**OracleOps** is a Hermes Agent plugin and skill pack that turns Telegram (or Discord, Slack, WhatsApp — anywhere Hermes runs) into a senior Oracle DBA you can DM at 3 AM.
+**OracleOps** is a Hermes Agent plugin and skill pack that turns *any messaging app your team already uses* into a senior Oracle DBA you can DM at 3 AM.
+
+> 📡 **One install. Any chat platform.**
+> The demo runs in **Telegram**, but the same OracleOps skills work identically in **Slack**, **Discord**, **Microsoft Teams**, **WhatsApp**, **Signal**, and **Email** — anywhere Hermes Agent's messaging gateway reaches. Zero code changes between platforms. Bank ops team on Teams, startup ops team on Discord, on-call engineer on WhatsApp? Same bot, same skills, same audit log.
 
 You message your bot, "*Why is this query slow: `SELECT * FROM orders WHERE customer_id = 42`?*"
 
@@ -119,7 +122,7 @@ MIT licensed. Repo includes:
 |---|---|
 | Agent runtime | Hermes Agent v0.14 from Nous Research |
 | Model | Anthropic Claude Sonnet 4.6 (switched from Gemini after hitting free-tier 429s) |
-| Messaging | Telegram via Hermes' bundled `python-telegram-bot` gateway |
+| Messaging | Telegram via Hermes' bundled gateway (one of 7 supported — Slack, Discord, Teams, WhatsApp, Signal, Email all work identically) |
 | Plugin language | Python 3.11 with `oracledb 4.0` in thin mode (no Instant Client install) |
 | Database | Oracle Autonomous Database 23ai / 26ai on Oracle Cloud Always Free Tier |
 | Auth to ADB | mTLS via wallet (`cwallet.sso`, `tnsnames.ora`) |
@@ -147,11 +150,23 @@ This was the killer feature for the safety story. The `oracle_write_with_confirm
 
 Every executed write hits a JSON Lines audit log outside the plugin directory. Even if the plugin gets uninstalled or rewritten, the historical trail of "what did the agent do with my consent" survives. This is the answer to that Hacker News thread titled "An AI agent deleted our production database."
 
-### 4. Messaging gateways (Telegram, but pluggable)
+### 4. Messaging gateways (the multi-platform story)
 
-I wired Telegram with `hermes setup gateway`. Same skills work over Discord, Slack, WhatsApp, Signal, Email - anywhere Hermes' gateway plugins reach. So when the bank ops team prefers Microsoft Teams and the startup ops team prefers Discord, the *same* OracleOps install serves both. No skill changes, no rewrites.
+I wired **Telegram** for the demo with `hermes setup gateway` — about 2 minutes of clicks in BotFather plus one `hermes config set` for the allowlist. **The same OracleOps install also serves**:
 
-The allowlist (`TELEGRAM_ALLOWED_USERS`) restricts who can DM the bot. This matters: an Oracle DBA agent with the bot token unrestricted is a remote-code-execution surface.
+| Platform | Status | Setup |
+|---|---|---|
+| Telegram | ✅ demo | BotFather token |
+| Slack | ✅ supported | Socket Mode bot token |
+| Discord | ✅ supported | Application + Message Content Intent |
+| Microsoft Teams | ✅ supported | Bot Framework + Adaptive Cards |
+| WhatsApp | ✅ supported | Meta Cloud API or Twilio |
+| Signal | ✅ supported | `signal-cli` linked to your number |
+| Email | ✅ supported | IMAP/SMTP |
+
+**Crucially, the skills don't change.** All 7 OracleOps skills are platform-agnostic Markdown — the Hermes gateway plugin handles the protocol differences (token-by-token streaming on Telegram/Slack, message-batched on Email, etc.). So when the bank ops team prefers Microsoft Teams and the startup ops team prefers Discord, the *same* OracleOps deployment serves both audiences with zero code rework.
+
+The allowlist (`TELEGRAM_ALLOWED_USERS` / `SLACK_ALLOWED_USERS` / etc.) restricts who can DM the bot. This matters: an Oracle DBA agent with no allowlist is a remote-code-execution surface to anyone who finds the bot username.
 
 ### 5. The orchestrator pattern with subagents on call
 
