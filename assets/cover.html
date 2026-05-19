@@ -5,15 +5,12 @@
 <title>OracleOps cover</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet">
 <style>
   /* ----------------------------------------------------------------
      OracleOps cover — render at exactly 1000 x 420 for DEV.to.
-     Open this file in Chrome, then either:
-       (a) DevTools → Toggle device toolbar → set 1000 x 420 →
-           Cmd+Shift+P → "Capture full size screenshot"
-       (b) Cmd+Shift+4 and crop the .cover element on-screen
-     Save the resulting PNG and upload as the DEV.to cover image.
+     Open in Chrome, DevTools → device mode → 1000 x 420 →
+     Cmd+Shift+P → "Capture full size screenshot".
      ---------------------------------------------------------------- */
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -30,22 +27,20 @@
     width: 1000px;
     height: 420px;
     background:
-      radial-gradient(ellipse at 18% 30%, rgba(239, 68, 68, 0.18) 0%, transparent 55%),
-      radial-gradient(ellipse at 82% 70%, rgba(34, 197, 94, 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 15% 20%, rgba(239, 68, 68, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 80%, rgba(34, 197, 94, 0.12) 0%, transparent 50%),
       linear-gradient(135deg, #0a0e17 0%, #0f1729 50%, #131b2e 100%);
     position: relative;
     overflow: hidden;
     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
   }
-
-  /* Subtle terminal grid in the background */
   .cover::before {
     content: '';
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+      linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
     background-size: 40px 40px;
     pointer-events: none;
   }
@@ -53,84 +48,159 @@
   /* ----- Top brand strip ----- */
   .brand {
     position: absolute;
-    top: 22px;
-    left: 32px;
+    top: 18px;
+    left: 28px;
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: 10px;
     z-index: 3;
   }
   .brand .name {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 800;
-    font-size: 22px;
-    letter-spacing: 0.5px;
+    font-size: 20px;
+    letter-spacing: 0.4px;
     background: linear-gradient(90deg, #ef4444 0%, #f97316 30%, #facc15 60%, #22c55e 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .brand .tag {
-    font-size: 11px;
+    font-size: 10px;
     color: #94a3b8;
-    letter-spacing: 1.4px;
+    letter-spacing: 1.2px;
     text-transform: uppercase;
     font-weight: 500;
   }
-
   .url {
     position: absolute;
-    top: 24px;
-    right: 32px;
+    top: 20px;
+    right: 28px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: #64748b;
     z-index: 3;
   }
   .url::before { content: '➜ '; color: #475569; }
 
-  /* ----- Center: the plan diff ----- */
-  .diff {
+  /* ----- Architecture flow strip ----- */
+  .flow {
     position: absolute;
-    top: 95px;
+    top: 56px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
-    gap: 24px;
-    z-index: 2;
+    gap: 0;
+    z-index: 3;
+  }
+  .node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 130px;
+    padding: 10px 6px 8px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    backdrop-filter: blur(6px);
+  }
+  .node .icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 17px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .node .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: #e2e8f0;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .node .sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: #94a3b8;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-top: 2px;
   }
 
+  .node.telegram .icon { background: rgba(34, 158, 217, 0.15); color: #38bdf8; border: 1px solid rgba(34, 158, 217, 0.4); }
+  .node.hermes   .icon { background: rgba(168, 85, 247, 0.15); color: #c4b5fd; border: 1px solid rgba(168, 85, 247, 0.4); }
+  .node.plugin   .icon { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); }
+  .node.oracle   .icon { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+  .conn {
+    width: 38px;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.6) 50%, rgba(99, 102, 241, 0.2) 100%);
+    position: relative;
+    margin: 0 -1px;
+  }
+  .conn::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: -3px;
+    width: 0;
+    height: 0;
+    border-top: 3px solid transparent;
+    border-bottom: 3px solid transparent;
+    border-left: 5px solid rgba(99, 102, 241, 0.7);
+  }
+
+  /* ----- Plan diff (center) ----- */
+  .diff {
+    position: absolute;
+    top: 180px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    z-index: 2;
+  }
   .panel {
     background: rgba(15, 23, 42, 0.7);
     border-radius: 10px;
-    padding: 14px 22px 16px;
-    width: 360px;
+    padding: 11px 18px 13px;
+    width: 290px;
     border: 1px solid rgba(148, 163, 184, 0.15);
     backdrop-filter: blur(8px);
   }
   .panel .label {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 1.4px;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+    font-weight: 700;
   }
   .panel .operation {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 17px;
+    font-size: 14px;
     font-weight: 700;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     line-height: 1.15;
   }
   .panel .cost {
     display: flex;
     align-items: baseline;
-    gap: 10px;
+    gap: 8px;
   }
   .panel .cost-label {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
+    font-size: 10px;
     color: #94a3b8;
     letter-spacing: 1.2px;
     text-transform: uppercase;
@@ -138,37 +208,34 @@
   .panel .cost-value {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 800;
-    font-size: 36px;
+    font-size: 26px;
     line-height: 1;
   }
-
   .panel.before {
     border-color: rgba(239, 68, 68, 0.35);
-    box-shadow: 0 0 32px rgba(239, 68, 68, 0.08), inset 0 0 0 1px rgba(239, 68, 68, 0.1);
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.08), inset 0 0 0 1px rgba(239, 68, 68, 0.08);
   }
   .panel.before .label { color: #f87171; }
   .panel.before .operation { color: #fca5a5; }
   .panel.before .cost-value { color: #ef4444; }
-
   .panel.after {
     border-color: rgba(34, 197, 94, 0.35);
-    box-shadow: 0 0 32px rgba(34, 197, 94, 0.08), inset 0 0 0 1px rgba(34, 197, 94, 0.1);
+    box-shadow: 0 0 24px rgba(34, 197, 94, 0.08), inset 0 0 0 1px rgba(34, 197, 94, 0.08);
   }
   .panel.after .label { color: #4ade80; }
   .panel.after .operation { color: #86efac; }
   .panel.after .cost-value { color: #22c55e; }
-
-  .arrow {
+  .big-arrow {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 34px;
+    font-size: 26px;
     color: #6366f1;
-    text-shadow: 0 0 16px rgba(99, 102, 241, 0.6);
+    text-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
   }
 
-  /* ----- The 98.9% headline ----- */
+  /* ----- Headline ----- */
   .headline {
     position: absolute;
-    bottom: 70px;
+    bottom: 56px;
     left: 50%;
     transform: translateX(-50%);
     text-align: center;
@@ -177,23 +244,19 @@
   .headline .number {
     font-family: 'Inter', sans-serif;
     font-weight: 900;
-    font-size: 30px;
+    font-size: 26px;
     letter-spacing: -0.5px;
     background: linear-gradient(90deg, #22c55e 0%, #06b6d4 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    margin-bottom: 6px;
     display: inline-block;
-  }
-  .headline .number .pct {
-    font-size: 28px;
+    margin-bottom: 4px;
   }
   .headline .subline {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
+    font-size: 11px;
     color: #cbd5e1;
-    letter-spacing: 0.3px;
     font-weight: 500;
   }
   .headline .subline .key {
@@ -201,42 +264,38 @@
     font-weight: 700;
   }
 
-  /* ----- Bottom strip: positioning + branding ----- */
+  /* ----- Bottom strip ----- */
   .bottom {
     position: absolute;
-    bottom: 18px;
-    left: 32px;
-    right: 32px;
+    bottom: 14px;
+    left: 28px;
+    right: 28px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 10px;
     z-index: 3;
   }
-  .bottom .left {
+  .bottom .journey {
     color: #94a3b8;
     letter-spacing: 0.4px;
   }
-  .bottom .left strong {
-    color: #e2e8f0;
+  .bottom .journey strong {
+    color: #facc15;
     font-weight: 700;
   }
-  .bottom .right {
-    color: #64748b;
-    letter-spacing: 0.5px;
-  }
-  .bottom .right .badge {
+  .bottom .badge {
     display: inline-block;
-    padding: 3px 9px;
-    margin-left: 8px;
+    padding: 3px 8px;
     border: 1px solid rgba(99, 102, 241, 0.4);
     border-radius: 4px;
     color: #a5b4fc;
     background: rgba(99, 102, 241, 0.08);
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 1.2px;
     text-transform: uppercase;
+    font-weight: 700;
   }
 </style>
 </head>
@@ -249,19 +308,47 @@
   </div>
   <div class="url">github.com/shopsmartai/oracleops</div>
 
+  <!-- Architecture flow -->
+  <div class="flow">
+    <div class="node telegram">
+      <div class="icon">✈</div>
+      <div class="label">Telegram</div>
+      <div class="sub">you ask</div>
+    </div>
+    <div class="conn"></div>
+    <div class="node hermes">
+      <div class="icon">⚕</div>
+      <div class="label">Hermes Agent</div>
+      <div class="sub">claude · skills</div>
+    </div>
+    <div class="conn"></div>
+    <div class="node plugin">
+      <div class="icon">🔌</div>
+      <div class="label">OracleOps</div>
+      <div class="sub">5 tools · 7 skills</div>
+    </div>
+    <div class="conn"></div>
+    <div class="node oracle">
+      <div class="icon">DB</div>
+      <div class="label">Oracle 23ai</div>
+      <div class="sub">autonomous db</div>
+    </div>
+  </div>
+
+  <!-- Plan diff -->
   <div class="diff">
     <div class="panel before">
       <div class="label">▸ BEFORE</div>
-      <div class="operation">TABLE&nbsp;ACCESS<br>STORAGE&nbsp;FULL</div>
+      <div class="operation">TABLE&nbsp;ACCESS&nbsp;STORAGE&nbsp;FULL</div>
       <div class="cost">
         <span class="cost-label">cost</span>
         <span class="cost-value">709</span>
       </div>
     </div>
-    <div class="arrow">→</div>
+    <div class="big-arrow">→</div>
     <div class="panel after">
       <div class="label">▸ AFTER</div>
-      <div class="operation">INDEX&nbsp;RANGE<br>SCAN</div>
+      <div class="operation">INDEX&nbsp;RANGE&nbsp;SCAN</div>
       <div class="cost">
         <span class="cost-label">cost</span>
         <span class="cost-value">8</span>
@@ -269,14 +356,16 @@
     </div>
   </div>
 
+  <!-- Headline -->
   <div class="headline">
-    <div class="number">98.9% faster<span class="pct"></span></div>
+    <div class="number">98.9% faster</div>
     <div class="subline">after my literal <span class="key">"yes"</span> — every write audited</div>
   </div>
 
+  <!-- Bottom strip -->
   <div class="bottom">
-    <div class="left">Diagnose &nbsp;·&nbsp; Recommend &nbsp;·&nbsp; <strong>Confirm</strong> &nbsp;·&nbsp; Fix &nbsp;·&nbsp; Verify</div>
-    <div class="right">
+    <div class="journey">Diagnose · Recommend · <strong>Confirm</strong> · Fix · Verify</div>
+    <div>
       Submission for <span class="badge">Hermes Agent Challenge</span>
     </div>
   </div>
