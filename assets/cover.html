@@ -86,13 +86,39 @@
   /* ----- Architecture flow strip ----- */
   .flow {
     position: absolute;
-    top: 56px;
+    top: 50px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
     gap: 0;
     z-index: 3;
+  }
+
+  /* ----- Multi-platform strip (just under the flow) ----- */
+  .platforms {
+    position: absolute;
+    top: 146px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+    z-index: 3;
+    text-align: center;
+  }
+  .platforms .also {
+    color: #facc15;
+    font-weight: 700;
+    margin-right: 8px;
+  }
+  .platforms .plat {
+    color: #cbd5e1;
+  }
+  .platforms .sep {
+    color: #475569;
+    margin: 0 5px;
   }
   .node {
     display: flex;
@@ -162,7 +188,7 @@
   /* ----- Plan diff (center) ----- */
   .diff {
     position: absolute;
-    top: 180px;
+    top: 188px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
@@ -333,6 +359,17 @@
       <div class="label">Oracle 23ai</div>
       <div class="sub">autonomous db</div>
     </div>
+  </div>
+
+  <!-- Also-runs-on platforms strip -->
+  <div class="platforms">
+    <span class="also">↑ ALSO</span>
+    <span class="plat">Slack</span><span class="sep">·</span>
+    <span class="plat">Discord</span><span class="sep">·</span>
+    <span class="plat">Teams</span><span class="sep">·</span>
+    <span class="plat">WhatsApp</span><span class="sep">·</span>
+    <span class="plat">Signal</span><span class="sep">·</span>
+    <span class="plat">Email</span>
   </div>
 
   <!-- Plan diff -->
