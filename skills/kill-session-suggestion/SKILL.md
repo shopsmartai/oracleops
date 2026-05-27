@@ -160,20 +160,25 @@ If `sessions_blocked` is high (> 10), prepend an "ALERT" line and a one-sentence
 
 If `sessions_blocked` is low (≤ 2), de-emphasize: "Only 1 session blocked. You may want to wait for the holder to finish naturally instead."
 
-### Step 6: Wait for the literal "yes"
+### Step 6: Wait for confirmation, with a stronger gate for destructive ops
 
-The agent must consume the user's next message. Only the following responses count as confirmation:
+The agent must consume the user's next message. Two tiers of confirmation now apply:
 
-- `yes`
-- `yes, do it`
-- `y`
-- `confirm`
-- `proceed`
-- `kill it`
+**Tier 1 (standard writes — INSERT / UPDATE / DELETE / MERGE / CREATE INDEX / GRANT / etc.):** A plain affirmative is enough. Any of these count:
+- `yes`, `y`, `confirm`, `proceed`, `ok`, `do it`, `kill it`, `go ahead`, `yes, do it`, `yes do it`
 
-Reject everything else with a polite "I'll hold off. Tell me 'yes' if you want me to proceed, or describe what to do differently."
+**Tier 2 (DESTRUCTIVE — DROP / TRUNCATE / ALTER):** A plain "yes" is NOT enough. The user must type one of:
+- The target object's name (case-insensitive). For `DROP TABLE orders`, the user must type something containing `orders`. For `ALTER TABLE customers DROP COLUMN x`, the user must type something containing `customers`.
+- OR the literal phrase `I understand`.
 
-The `user_confirmation_token` passed to `oracle.write_with_confirmation` is the user's literal response string. The audit log will record exactly what the human typed.
+This applies to the `kill-session-suggestion` skill when the user types `ALTER SYSTEM KILL SESSION '<sid>,<serial>'` — that's an ALTER, so the user must type `system` (or `kill`, depending on parse) or `I understand`. In practice for kill-session the simplest prompt is: "Type **I understand** to confirm killing this session."
+
+If the user responds with anything else, do NOT call `oracle_write_with_confirmation`. Instead:
+
+1. Reply: "I'll hold off. Reply with 'I understand' to actually kill the session, or describe what you'd prefer."
+2. Call `oracle_record_denial` to log the rejected proposal with the user's response and a one-sentence reason. The denial goes into the same audit log alongside approvals, so the trail captures every decision point.
+
+The `user_confirmation_token` passed to `oracle_write_with_confirmation` is the user's literal response string. The audit log records exactly what the human typed plus the reason field with the agent's justification.
 
 ### Step 7: Show alternatives if asked
 

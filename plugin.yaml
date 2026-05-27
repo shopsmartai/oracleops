@@ -9,3 +9,4 @@ provides_tools:
   - oracle_explain_plan
   - oracle_display_cursor_plan
   - oracle_write_with_confirmation
+  - oracle_record_denial

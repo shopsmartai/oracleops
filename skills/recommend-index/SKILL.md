@@ -180,9 +180,11 @@ ALTERNATIVES (if you said "show-other-options")
 - Skip indexing; refresh stats instead — try `recommend-statistics-refresh`
 ```
 
-### Step 8: On user "yes", execute via the confirmation-gated tool
+### Step 8: On user "yes", execute via the confirmation-gated tool. On "no", record the denial.
 
-The agent MUST pass the user's literal "yes" response as the `user_confirmation_token` to `oracle.write_with_confirmation`. Do not call the write tool without an explicit user "yes" in the immediate prior chat turn.
+The user's response is consumed by the agent. Two branches:
+
+**Branch A — user says yes (or any standard affirmative).** CREATE INDEX is a Tier 1 write (not DROP / TRUNCATE / ALTER), so the plain affirmative allowlist applies: `yes`, `y`, `confirm`, `proceed`, `ok`, `do it`, `go ahead`. Pass the user's literal response as `user_confirmation_token` to `oracle_write_with_confirmation`:
 
 ```sql
 CREATE INDEX <owner>.<index_name> ON <owner>.<table>(<columns>) ONLINE;
@@ -195,6 +197,22 @@ After creation, capture stats:
 ```sql
 EXEC DBMS_STATS.GATHER_INDEX_STATS(USER, '<index_name>');
 ```
+
+**Branch B — user says no, not now, show alternatives, or any negative.** Do NOT call the write tool. Instead, call `oracle_record_denial` with:
+
+- `proposed_sql`: the exact CREATE INDEX DDL we proposed
+- `user_response`: the user's literal denial text
+- `reason`: the agent's interpretation of why (e.g., "user wants composite index instead", "user prefers to wait until off-hours", "user wants to refresh stats first and see if optimizer picks better access path")
+
+The denial gets appended to the same audit log as approvals (with `event: "denied"`), so the trail captures both what was done AND what was proposed-but-not-done. This is gold for tuning later: you can see exactly where the agent's judgment diverged from what a human DBA chose.
+
+If the user said "show alternatives" specifically, follow up with the alternative-index options from Step 7 before re-proposing.
+
+**Branch C — user says nothing or asks a clarifying question.** Answer the clarifying question. Do NOT pre-execute. Do NOT auto-confirm after some timeout.
+
+### Step 8b (rare): DROP/ALTER on the index later requires Tier 2 confirmation
+
+If the user later asks you to drop the index you just created, that DDL is a DROP statement which is destructive. The confirmation gate requires the user to type the index name (e.g., `IX_ORDERS_CUSTOMER_ID`) or the literal phrase `I understand`. Plain "yes" is not sufficient for DROP. This is enforced inside `oracle_write_with_confirmation` itself — the calling skill doesn't need to police it, but it should set the user's expectations: "Reply with the index name `IX_ORDERS_CUSTOMER_ID` (or `I understand`) to confirm the drop."
 
 ### Step 9: Re-run diagnose-slow-query to confirm
 

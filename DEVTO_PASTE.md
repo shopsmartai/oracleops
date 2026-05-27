@@ -176,6 +176,96 @@ I also wired a `kill-session-suggestion` skill for the worst-case 3 AM scenario:
 
 ---
 
+## Safety architecture (the part that matters most)
+
+Before the engineering deep-dive, the design choice the whole project hinges on: **the agent never mutates state without permission, and "permission" gets progressively harder to give as the blast radius grows.**
+
+Three tiers, smallest blast radius first:
+
+### Tier 0 — Read-only path (auto-runs, no consent needed)
+
+`oracle_run_select` is the only tool that the agent can dispatch without any confirmation flow. It runs a single regex deny-list against the SQL before the database ever sees it:
+
+```python
+_FORBIDDEN_IN_READ = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|MERGE|TRUNCATE|DROP|CREATE|ALTER|"
+    r"GRANT|REVOKE|COMMIT|ROLLBACK|SAVEPOINT)\b",
+    re.IGNORECASE,
+)
+```
+
+Anything matching is hard-rejected with an explanatory error. Even if the agent hallucinates an `UPDATE` snuck inside what looks like a `SELECT`, it cannot mutate state through this path. The skills layer is the primary contract that this is read-only; the regex is the defense-in-depth.
+
+### Tier 1 — Standard writes (require a plain "yes")
+
+Most writes (CREATE INDEX, INSERT, UPDATE, DELETE, GRANT) go through `oracle_write_with_confirmation`. The tool refuses to execute unless its `user_confirmation_token` parameter matches one of a small allowlist of affirmatives:
+
+```python
+{"yes", "y", "confirm", "proceed", "ok", "do it",
+ "kill it", "go ahead", "yes, do it", "yes do it"}
+```
+
+The calling skill is responsible for collecting that token from the user's immediately prior chat turn. No prior approval can be reused across turns.
+
+### Tier 2 — Destructive ops (require typed-name confirmation)
+
+`DROP`, `TRUNCATE`, and `ALTER` are different. A plain "yes" to one of these is too easy — the user might have skimmed the proposal and reflexively approved. So for these statement types, the confirmation token must contain either:
+
+- **The target object's name** parsed out of the SQL (e.g., for `DROP TABLE orders`, the user must type something containing `orders`), OR
+- **The literal phrase `I understand`**
+
+This is the typed-confirmation pattern that ops-tooling folks have used for years on `rm -rf` and `kubectl delete namespace`, brought into the agent layer. Plain "yes" gets rejected with a clear error pointing the user at the expected token shape.
+
+### The audit log (every decision point recorded)
+
+Every approved write AND every denied proposal lands in a single append-only JSON Lines file at `~/.hermes/oracleops/writes.jsonl`. The file survives plugin upgrades and uninstalls because it lives outside the plugin directory.
+
+An approved entry:
+
+```json
+{
+  "event": "approved",
+  "ts": "2026-05-18T23:23:15Z",
+  "user": "admin",
+  "dsn": "oracleopsdemo_high",
+  "sql": "CREATE INDEX IX_ORDERS_CUSTOMER_ID ON orders(customer_id)",
+  "user_confirmation_token": "Yes",
+  "reason": "Create missing index on orders.customer_id to fix full table scan",
+  "rows_affected": 0
+}
+```
+
+A denied entry:
+
+```json
+{
+  "event": "denied",
+  "ts": "2026-05-19T08:12:04Z",
+  "user": "admin",
+  "dsn": "oracleopsdemo_high",
+  "proposed_sql": "DROP INDEX IX_ORDERS_OBSOLETE",
+  "user_response": "no, hold off until I check who's still using it",
+  "reason": "User wants to confirm no apps depend on the index before dropping"
+}
+```
+
+Filter approvals with `jq 'select(.event == "approved")' writes.jsonl`. Filter denials with `select(.event == "denied")`. Together they form the complete decision history. The denials are particularly valuable for tuning — they show exactly where the agent's judgment diverged from what a human DBA chose, which is the signal you'd want to teach the agent with next time.
+
+### How the tiers map to the user experience
+
+| User says | Path |
+|---|---|
+| "What's slow right now?" | Tier 0, auto-runs `oracle_run_select` |
+| "Show me the plan for that SQL" | Tier 0, auto-runs `oracle_explain_plan` |
+| "Recommend an index" | Tier 0 to propose, Tier 1 to create on "yes" |
+| "Yes" → CREATE INDEX runs | Tier 1, executes, logs `event: approved` |
+| "Drop the customers table" | Tier 2, requires `customers` or `I understand` in token; rejected on plain "yes" |
+| "No, hold off" → DROP not run | Tier 2 path aborts, agent calls `oracle_record_denial`, logs `event: denied` |
+
+The whole point: you can have an agent that's genuinely useful for ops without it being able to nuke production by mistake. The friction grows with the stakes.
+
+---
+
 ## The 8 engineering problems I hit
 
 Most of these weren't in the docs. Sharing them so anyone building on Hermes can shortcut the painful parts.

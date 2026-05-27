@@ -25,12 +25,14 @@ from .tools import (
     ORACLE_DESCRIBE_TABLE_SCHEMA,
     ORACLE_DISPLAY_CURSOR_PLAN_SCHEMA,
     ORACLE_EXPLAIN_PLAN_SCHEMA,
+    ORACLE_RECORD_DENIAL_SCHEMA,
     ORACLE_RUN_SELECT_SCHEMA,
     ORACLE_WRITE_WITH_CONFIRMATION_SCHEMA,
     _check_oracle_available,
     _handle_describe_table,
     _handle_display_cursor_plan,
     _handle_explain_plan,
+    _handle_record_denial,
     _handle_run_select,
     _handle_write_with_confirmation,
 )
@@ -42,6 +44,7 @@ _TOOLS = (
     ("oracle_explain_plan",            ORACLE_EXPLAIN_PLAN_SCHEMA,            _handle_explain_plan,            "📊"),
     ("oracle_display_cursor_plan",     ORACLE_DISPLAY_CURSOR_PLAN_SCHEMA,     _handle_display_cursor_plan,     "📈"),
     ("oracle_write_with_confirmation", ORACLE_WRITE_WITH_CONFIRMATION_SCHEMA, _handle_write_with_confirmation, "⚠️"),
+    ("oracle_record_denial",           ORACLE_RECORD_DENIAL_SCHEMA,           _handle_record_denial,           "📝"),
 )
 
 

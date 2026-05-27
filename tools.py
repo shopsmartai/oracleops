@@ -53,6 +53,31 @@ _FORBIDDEN_IN_READ = re.compile(
     re.IGNORECASE,
 )
 
+# DROP / TRUNCATE / ALTER are destructive enough that we require a
+# stronger user-side confirmation than just 'yes'. The user must type
+# the target object name (e.g., 'orders' for DROP TABLE orders) OR the
+# explicit phrase 'I understand'. This blocks the failure mode where a
+# user reflexively says 'yes' to a proposal they didn't fully read.
+_DESTRUCTIVE_OPS = re.compile(r"\b(DROP|TRUNCATE|ALTER)\b", re.IGNORECASE)
+
+# Pulls the first object identifier out of a DROP/TRUNCATE/ALTER
+# statement. Handles optional `schema.` qualifier. Returns lowercase
+# name or None if the parse can't locate it (in which case the user
+# falls back to the 'I understand' acknowledgment phrase).
+_TARGET_OBJECT_RE = re.compile(
+    r"\b(?:DROP|TRUNCATE|ALTER)\s+"
+    r"(?:TABLE|INDEX|VIEW|SEQUENCE|PROCEDURE|FUNCTION|PACKAGE|TRIGGER|"
+    r"SYNONYM|TYPE|USER|TABLESPACE|MATERIALIZED\s+VIEW|SYSTEM|SESSION)\s+"
+    r"(?:[a-zA-Z_][a-zA-Z0-9_$#]*\.)?"
+    r"([a-zA-Z_][a-zA-Z0-9_$#]*)",
+    re.IGNORECASE,
+)
+
+
+def _extract_target_object(sql: str) -> str | None:
+    m = _TARGET_OBJECT_RE.search(sql)
+    return m.group(1).lower() if m else None
+
 
 def _to_jsonable(value: Any) -> Any:
     """Coerce Oracle row values into JSON-serializable shapes."""
@@ -407,6 +432,50 @@ def _is_affirmative(token: str | None) -> bool:
                  "go ahead", "yes, do it", "yes do it"}
 
 
+def _validate_confirmation(token: str | None, sql: str) -> tuple[bool, str | None]:
+    """Two-tier confirmation check.
+
+    - Non-destructive writes (INSERT/UPDATE/DELETE/MERGE/CREATE/GRANT etc.)
+      require the user's literal 'yes' or an equivalent from the small
+      affirmative allowlist.
+    - DESTRUCTIVE writes (DROP/TRUNCATE/ALTER) additionally require the
+      user to type the target object's name (e.g. 'orders' for
+      DROP TABLE orders) OR the explicit phrase 'I understand'. This
+      blocks the reflexive 'yes' to a proposal that wasn't fully read.
+
+    Returns (is_valid, error_message_if_invalid).
+    """
+    token_lower = (token or "").strip().lower()
+
+    if not _DESTRUCTIVE_OPS.search(sql):
+        if _is_affirmative(token):
+            return True, None
+        return False, (
+            "user_confirmation_token must be the user's literal 'yes' "
+            "(or equivalent affirmative). The calling skill must collect "
+            "explicit consent in the immediately prior turn before "
+            "invoking this tool."
+        )
+
+    # Destructive path. 'I understand' is the universal acknowledgment.
+    if "i understand" in token_lower:
+        return True, None
+
+    target = _extract_target_object(sql)
+    if target and target in token_lower:
+        return True, None
+
+    expected_hint = target if target else "the target object's name"
+    return False, (
+        f"This statement is destructive (DROP/TRUNCATE/ALTER), so a "
+        f"plain 'yes' is not enough. The user must type the target "
+        f"object's name ('{expected_hint}') or the literal phrase "
+        f"'I understand' as the confirmation token. This intentionally "
+        f"adds friction to prevent reflexive approval of a proposal the "
+        f"user did not fully read."
+    )
+
+
 def _handle_write_with_confirmation(args: dict, **kwargs) -> str:
     sql = (args.get("sql") or "").strip().rstrip(";")
     binds = args.get("binds") or {}
@@ -417,15 +486,10 @@ def _handle_write_with_confirmation(args: dict, **kwargs) -> str:
         return json.dumps({"error": "sql is required"})
     if not reason:
         return json.dumps({"error": "reason is required for the audit log"})
-    if not _is_affirmative(token):
-        return json.dumps({
-            "error": (
-                "user_confirmation_token must be the user's literal 'yes' "
-                "(or equivalent affirmative). The calling skill must collect "
-                "explicit consent in the immediately prior turn before "
-                "invoking this tool."
-            )
-        })
+
+    valid, err = _validate_confirmation(token, sql)
+    if not valid:
+        return json.dumps({"error": err})
 
     try:
         pool = get_pool()
@@ -434,7 +498,8 @@ def _handle_write_with_confirmation(args: dict, **kwargs) -> str:
             cursor.execute(sql, binds)
             affected = cursor.rowcount
             conn.commit()
-            _audit_write(sql, binds, token, reason, affected)
+            _audit_event("approved", sql=sql, binds=binds, token=token,
+                         reason=reason, rows_affected=affected)
             return json.dumps({
                 "ok": True,
                 "rows_affected": affected,
@@ -445,24 +510,110 @@ def _handle_write_with_confirmation(args: dict, **kwargs) -> str:
         return json.dumps({"error": str(exc), "reason": reason})
 
 
-def _audit_write(sql: str, binds: dict | None, token: str,
-                 reason: str, affected: int) -> None:
-    """Append-only audit log of every executed write. Survives plugin
-    upgrades because it lives outside the plugin directory.
+# --- oracle_record_denial --------------------------------------------------
+#
+# Logs a proposal the agent made that the user rejected. The other half of
+# the audit story: today we know every write that ran; with this we also
+# know every write the agent suggested and the user vetoed, which is gold
+# for tuning the agent's judgment over time. The skills layer is responsible
+# for calling this tool whenever a user replies 'no' (or any negative) to a
+# write proposal — same convention as collecting 'yes' for the confirmation
+# path.
+
+ORACLE_RECORD_DENIAL_SCHEMA = {
+    "name": "oracle_record_denial",
+    "description": (
+        "Log a user's rejection of a proposed write (DDL/DML) to the audit "
+        "trail. Call this when the user replies 'no' (or any negative) to a "
+        "proposal that would otherwise have gone through "
+        "oracle_write_with_confirmation. Together with the approval log, "
+        "this gives the user a record of EVERY decision point: what was "
+        "proposed, what was approved, and what was rejected — useful for "
+        "tuning the agent's judgment over time. Does NOT execute any SQL."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "proposed_sql": {
+                "type": "string",
+                "description": "The SQL the agent proposed but did not execute.",
+            },
+            "user_response": {
+                "type": "string",
+                "description": (
+                    "The user's literal denial response (e.g. 'no', "
+                    "'not now', 'show alternatives')."
+                ),
+            },
+            "reason": {
+                "type": "string",
+                "description": (
+                    "Why the proposal was rejected, in the user's words or "
+                    "the agent's best interpretation. Used to improve the "
+                    "agent's future suggestions for the same situation."
+                ),
+            },
+        },
+        "required": ["proposed_sql", "user_response", "reason"],
+    },
+}
+
+
+def _handle_record_denial(args: dict, **kwargs) -> str:
+    proposed_sql = (args.get("proposed_sql") or "").strip().rstrip(";")
+    user_response = (args.get("user_response") or "").strip()
+    reason = (args.get("reason") or "").strip()
+
+    if not proposed_sql:
+        return json.dumps({"error": "proposed_sql is required"})
+    if not user_response:
+        return json.dumps({"error": "user_response is required"})
+    if not reason:
+        return json.dumps({"error": "reason is required"})
+
+    try:
+        _audit_event("denied", proposed_sql=proposed_sql,
+                     user_response=user_response, reason=reason)
+        return json.dumps({
+            "ok": True,
+            "logged": True,
+            "event": "denied",
+        })
+    except Exception as exc:  # noqa: BLE001
+        return json.dumps({"error": str(exc)})
+
+
+def _audit_event(event: str, **fields) -> None:
+    """Append-only audit log capturing every approved write AND every
+    denied proposal. Survives plugin upgrades because it lives outside
+    the plugin directory.
+
+    Two event shapes share one log file (writes.jsonl):
+
+    event=approved: {ts, event, user, dsn, sql, binds,
+                     user_confirmation_token, reason, rows_affected}
+    event=denied:   {ts, event, user, dsn, proposed_sql,
+                     user_response, reason}
+
+    Both share the metadata (ts/user/dsn/reason) so a tail of the file
+    gives the full decision history. Use `jq 'select(.event=="approved")'`
+    to filter to executions; `select(.event=="denied")` for vetoes.
     """
     log_dir = pathlib.Path.home() / ".hermes" / "oracleops"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "writes.jsonl"
 
-    entry = {
+    base = {
+        "event": event,
         "ts": datetime.datetime.utcnow().isoformat() + "Z",
         "user": os.environ.get("ORACLE_USER", "?"),
         "dsn": os.environ.get("ORACLE_DSN", "?"),
-        "sql": sql,
-        "binds": {k: _to_jsonable(v) for k, v in (binds or {}).items()},
-        "user_confirmation_token": token,
-        "reason": reason,
-        "rows_affected": affected,
     }
+
+    # Normalize bind values (datetimes etc) for JSON serialization
+    if "binds" in fields and fields["binds"]:
+        fields["binds"] = {k: _to_jsonable(v) for k, v in fields["binds"].items()}
+
+    entry = {**base, **fields}
     with log_file.open("a") as f:
         f.write(json.dumps(entry) + "\n")
