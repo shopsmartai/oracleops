@@ -216,6 +216,12 @@ The calling skill is responsible for collecting that token from the user's immed
 
 This is the typed-confirmation pattern that ops-tooling folks have used for years on `rm -rf` and `kubectl delete namespace`, brought into the agent layer. Plain "yes" gets rejected with a clear error pointing the user at the expected token shape.
 
+Here is the gate firing live. I asked the agent to drop my main demo table, then I typed "yes":
+
+![OracleOps Tier 2 safety gate refusing a plain "yes" on DROP TABLE customers, then logging the denial when the user cancels](https://raw.githubusercontent.com/shopsmartai/oracleops/main/assets/safety-tier2-rejection.png)
+
+The tool refused. The agent then surfaced the two valid confirmation tokens (`customers` or `I understand`). When I replied `no, cancel that`, the agent called `oracle_record_denial` and the denial landed in the audit log instead.
+
 ### The audit log (every decision point recorded)
 
 Every approved write AND every denied proposal lands in a single append-only JSON Lines file at `~/.hermes/oracleops/writes.jsonl`. The file survives plugin upgrades and uninstalls because it lives outside the plugin directory.
@@ -263,6 +269,12 @@ Filter approvals with `jq 'select(.event == "approved")' writes.jsonl`. Filter d
 | "No, hold off" → DROP not run | Tier 2 path aborts, agent calls `oracle_record_denial`, logs `event: denied` |
 
 The whole point: you can have an agent that's genuinely useful for ops without it being able to nuke production by mistake. The friction grows with the stakes.
+
+And the agent itself knows when to escalate. Here's the same conversation continuing through both a real destructive op (DROP INDEX, needing typed-name confirmation) and a non-destructive op (CREATE INDEX, where the agent correctly downgrades to Tier 1 plain "yes" when I tried to over-confirm with "I understand"):
+
+![OracleOps confirmation flow: typed-name accepted for DROP INDEX, plain yes accepted for CREATE INDEX, with the agent declining "I understand" as overkill for a non-destructive op](https://raw.githubusercontent.com/shopsmartai/oracleops/main/assets/safety-confirmation-flow.png)
+
+That "could you just reply yes to confirm" moment is the model's own reasoning operating on top of the tool's validation. It read the SQL, understood that `CREATE INDEX` is not destructive, and refused to accept the elevated-friction token because it wasn't warranted. That's the agent treating safety as a contextual decision, not a uniform tax.
 
 ---
 
